@@ -1,32 +1,28 @@
 import { authAPI } from '@/libs/api';
-import { useMessage } from '@/libs/hooks';
-import { routeNavigate } from '@/routes';
-import { auth } from '@/store/actions';
-import { ErrorException } from '@/utils';
-import { Button, Form, Input, Typography } from 'antd';
-import { useCallback } from 'react';
+import { authService } from '@/libs/auth';
+import { PRIVATE_ROUTES } from '@/routes/paths';
+import { useMutation } from '@tanstack/react-query';
+import { Button, Form, Input, message, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export const SignIn = () => {
-	const { t } = useTranslation('signin');
-	const { APIRequest } = useMessage('signIn');
+	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const { pathname = routeNavigate('dashboard') } = useLocation();
+	const { pathname = PRIVATE_ROUTES.DASHBOARD } = useLocation();
 
-	const handleSubmit = useCallback(
-		(values: API.SignInParams) => {
-			APIRequest(async () => {
-				const { success, data } = await authAPI.signIn(values);
-				if (success) {
-					auth.authenticate(data);
-					navigate(pathname);
-					return 'You have successfully signed in';
-				}
-				throw new ErrorException(data);
-			});
-		},
-		[APIRequest, navigate, pathname]
+	const { mutate: handleSubmit, isLoading } = useMutation(
+		(values: API.SignInParams) => authAPI.signIn(values),
+		{
+			onSuccess: (data) => {
+				navigate(pathname);
+				authService.setToken(data.token);
+				message.success(t('You have successfully signed in!'));
+			},
+			onError: (error: Error) => {
+				message.error(error.message);
+			},
+		}
 	);
 
 	return (
@@ -60,7 +56,7 @@ export const SignIn = () => {
 			>
 				<Input.Password placeholder={t('Password')} />
 			</Form.Item>
-			<Button block type='primary' htmlType='submit'>
+			<Button block type='primary' htmlType='submit' disabled={isLoading}>
 				{t('Sign In')}
 			</Button>
 		</Form>
